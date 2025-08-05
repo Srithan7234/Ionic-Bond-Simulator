@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ionic Bond Formation Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .simulation-area {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 30px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        select, button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select {
+            background: white;
+            border: 2px solid #e1e5e9;
+            color: #333;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e1e5e9;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .simulation-canvas {
+            width: 100%;
+            height: 500px;
+            background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid #dee2e6;
+            margin-bottom: 20px;
+        }
+
+        .atom {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: grab;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .atom.dragging {
+            z-index: 1000;
+            transform: scale(1.1);
+        }
+
+        .atom.bonded {
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .electron-orbit {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            transition: all 0.8s ease;
+            z-index: 5;
+        }
+
+        .electron-orbit.shell-1 {
+            border: 2px dashed rgba(255, 107, 107, 0.6);
+            animation: orbitRotate 4s linear infinite;
+        }
+
+        .electron-orbit.shell-2 {
+            border: 2px dashed rgba(107, 255, 107, 0.6);
+            animation: orbitRotate 6s linear infinite;
+        }
+
+        .electron-orbit.shell-3 {
+            border: 2px dashed rgba(107, 107, 255, 0.6);
+            animation: orbitRotate 8s linear infinite;
+        }
+
+        .electron-orbit.shell-gained {
+            border: 3px dashed rgba(107, 255, 107, 0.8);
+            animation: orbitRotate 7s linear infinite;
+            box-shadow: 0 0 10px rgba(107, 255, 107, 0.3);
+        }
+
+        @keyframes orbitRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .electron {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: radial-gradient(circle at 30% 30%, #ff9999, #ff6b6b);
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(255, 107, 107, 0.6);
+            transition: all 0.3s ease;
+            z-index: 15;
+        }
+
+        .electron.transferring {
+            width: 18px;
+            height: 18px;
+            background: radial-gradient(circle at 30% 30%, #ffff99, #ffaa00);
+            box-shadow: 0 0 20px rgba(255, 255, 0, 1), 0 0 40px rgba(255, 255, 0, 0.6);
+            animation: electronPulse 0.6s infinite alternate ease-in-out;
+            z-index: 100;
+        }
+
+        .electron.transferred {
+            background: radial-gradient(circle at 30% 30%, #99ff99, #44dd44);
+            box-shadow: 0 0 15px rgba(107, 255, 107, 0.8);
+        }
+
+        @keyframes electronPulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.2); }
+        }
+
+        .bond {
+            position: absolute;
+            height: 4px;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.4);
+            transform-origin: left center;
+            transition: all 0.8s ease;
+            opacity: 0;
+            z-index: 8;
+        }
+
+        .bond.visible {
+            opacity: 1;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .info-panel h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-card h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .info-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.8s ease;
+            width: 0%;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .step.completed {
+            background: #28a745;
+            color: white;
+        }
+
+        .floating-particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: float 6s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+            50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .header h1 { font-size: 2rem; }
+            .controls { flex-direction: column; }
+            .simulation-canvas { height: 400px; }
+            .info-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚛️ Ionic Bond Formation Simulator</h1>
+            <p>Watch electrons transfer between atoms to form ionic bonds</p>
+        </div>
+
+        <div class="simulation-area">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="cation">Choose Metal (Cation):</label>
+                    <select id="cation">
+                        <option value="Na">Sodium (Na⁺)</option>
+                        <option value="K">Potassium (K⁺)</option>
+                        
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="anion">Choose Non-metal (Anion):</label>
+                    <select id="anion">
+                        <option value="Cl">Chlorine (Cl⁻)</option>
+                        <option value="F">Fluorine (F⁻)</option>
+                                            </select>
+                </div>
+                <button class="btn-primary" onclick="startSimulation()">🚀 Start Simulation</button>
+                <button class="btn-secondary" onclick="resetSimulation()">🔄 Reset</button>
+            </div>
+
+            <div class="step-indicator">
+                <div class="step active" id="step1">1</div>
+                <div class="step" id="step2">2</div>
+                <div class="step" id="step3">3</div>
+                <div class="step" id="step4">4</div>
+            </div>
+
+            <div class="simulation-canvas" id="canvas">
+                <div class="floating-particles" id="particles"></div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-panel">
+                <h3>🔬 Current Process</h3>
+                <div class="info-card">
+                    <h4 id="process-title">Ready to Begin</h4>
+                    <p id="process-description">Select your atoms and click Start Simulation to begin the ionic bonding process.</p>
+                </div>
+            </div>
+            <div class="info-panel">
+    <h3>🌍 Environmental Impact</h3>
+    <div class="info-card">
+        <h4 id="env-impact-title">Impact Information</h4>
+        <p id="env-impact-description">Environmental impact details of the formed compound will appear here.</p>
+        </div>
+</div>
+            <div class="info-panel">
+                <h3>⚡ Electron Transfer</h3>
+                <div class="info-card">
+                    <h4 id="electron-title">Electron Configuration</h4>
+                    <p id="electron-description">Electron transfer details will appear here during the simulation.</p>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+
+<script>
+    // Fix shells so no shell exceeds its max allowed electrons (2, 8, 8, ...)
+    function fixShells(shells) {
+        const shellMaxElectrons = [2, 8, 8, 18, 18];
+        return shells.map((count, index) => Math.min(count, shellMaxElectrons[index] || 18));
+    }
+
+    // Atom properties database
+    const atomData = {
+        'Na': { name: 'Sodium', color: '#FFD700', size: 80, charge: '+1', electrons: 11, valence: 1, shells: [2, 8, 1] },
+        'K': { name: 'Potassium', color: '#DDA0DD', size: 90, charge: '+1', electrons: 19, valence: 1, shells: [2, 8, 8, 1] },
+                'Cl': { name: 'Chlorine', color: '#7FFF00', size: 75, charge: '-1', electrons: 17, valence: 7, shells: [2, 8, 7] },
+        'F': { name: 'Fluorine', color: '#FF69B4', size: 65, charge: '-1', electrons: 9, valence: 7, shells: [2, 7] },
+            };
+
+    let currentStep = 1;
+    let atoms = [];
+    let bonds = [];
+    let isSimulating = false;
+    let electronAnimations = [];
+
+    function createAtom(symbol, x, y) {
+        const data = atomData[symbol];
+        const atom = document.createElement('div');
+        atom.className = 'atom';
+        atom.id = `atom-${symbol}`;
+        atom.style.width = data.size + 'px';
+        atom.style.height = data.size + 'px';
+        atom.style.backgroundColor = data.color;
+        atom.style.left = x + 'px';
+        atom.style.top = y + 'px';
+        atom.innerHTML = symbol;
+
+        atom.addEventListener('mouseenter', (e) => showTooltip(e, `${data.name} (${symbol}${data.charge})`));
+        atom.addEventListener('mouseleave', hideTooltip);
+
+        document.getElementById('canvas').appendChild(atom);
+        return atom;
+    }
+
+    function createElectrons(atom, symbol) {
+        const data = atomData[symbol];
+        const rect = atom.getBoundingClientRect();
+        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+        const centerX = rect.left - canvasRect.left + rect.width / 2;
+        const centerY = rect.top - canvasRect.top + rect.height / 2;
+
+        atom.electrons = [];
+        atom.orbits = [];
+
+        const shellRadii = [data.size / 2 + 25, data.size / 2 + 45, data.size / 2 + 65, data.size / 2 + 85];
+        const shellColors = ['rgba(255, 107, 107, 0.6)', 'rgba(107, 255, 107, 0.6)', 'rgba(107, 107, 255, 0.6)', 'rgba(255, 107, 255, 0.6)'];
+
+        // Use shell fixing here to prevent too many electrons in a shell
+        const shells = fixShells(data.shells);
+        let electronIndex = 0;
+
+        for (let shell = 0; shell < shells.length; shell++) {
+            const electronsInShell = shells[shell];
+
+            if (electronsInShell > 0) {
+                // Create orbit ring
+                const orbit = document.createElement('div');
+                orbit.className = `electron-orbit shell-${shell + 1}`;
+                orbit.style.border = `2px dashed ${shellColors[shell]}`;
+                const diameter = shellRadii[shell] * 2;
+                orbit.style.width = diameter + 'px';
+                orbit.style.height = diameter + 'px';
+                orbit.style.left = (centerX - shellRadii[shell]) + 'px';
+                orbit.style.top = (centerY - shellRadii[shell]) + 'px';
+                orbit.style.animationDelay = (shell * 0.3) + 's';
+                orbit.style.animationDuration = (4 + shell * 2) + 's';
+
+                document.getElementById('canvas').appendChild(orbit);
+                atom.orbits.push(orbit);
+
+                // Create electrons for this shell
+                for (let i = 0; i < electronsInShell; i++) {
+                    const electron = document.createElement('div');
+                    electron.className = 'electron';
+                    electron.id = `electron-${symbol}-${electronIndex}`;
+
+                    const angle = (i / electronsInShell) * 2 * Math.PI;
+                    const radius = shellRadii[shell];
+                    const x = centerX + Math.cos(angle) * radius - 6;
+                    const y = centerY + Math.sin(angle) * radius - 6;
+
+                    electron.style.left = x + 'px';
+                    electron.style.top = y + 'px';
+
+                    document.getElementById('canvas').appendChild(electron);
+                    atom.electrons.push({
+                        element: electron,
+                        angle: angle,
+                        radius: radius,
+                        shell: shell,
+                        orbit: orbit,
+                        centerX: centerX,
+                        centerY: centerY
+                    });
+
+                    // Start orbiting animation
+                    startElectronOrbit(electron, centerX, centerY, radius, angle, shell);
+                    electronIndex++;
+                }
+            }
+        }
+    }
+
+    function startElectronOrbit(electron, centerX, centerY, radius, startAngle, shell) {
+        let angle = startAngle;
+        const speed = 0.02 / (shell + 1); // Outer shells move slower
+
+        function animate() {
+            if (!isSimulating || !electron.parentNode) return;
+
+            angle += speed;
+            const x = centerX + Math.cos(angle) * radius - 6;
+            const y = centerY + Math.sin(angle) * radius - 6;
+            electron.style.left = x + 'px';
+            electron.style.top = y + 'px';
+
+            requestAnimationFrame(animate);
+        }
+
+        electronAnimations.push(animate);
+        animate();
+    }
+
+    async function transferElectrons(fromAtom, toAtom, fromSymbol, toSymbol) {
+        const fromData = atomData[fromSymbol];
+        const toData = atomData[toSymbol];
+        const electronsToTransfer = Math.abs(parseInt(fromData.charge));
+
+        // Get atom positions
+        const fromRect = fromAtom.getBoundingClientRect();
+        const toRect = toAtom.getBoundingClientRect();
+        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+
+        const fromCenterX = fromRect.left - canvasRect.left + fromRect.width / 2;
+        const fromCenterY = fromRect.top - canvasRect.top + fromRect.height / 2;
+        const toCenterX = toRect.left - canvasRect.left + toRect.width / 2;
+        const toCenterY = toRect.top - canvasRect.top + toRect.height / 2;
+
+        // Get outermost shell electrons (valence electrons) for transfer
+        const maxShell = Math.max(...fromAtom.electrons.map(e => e.shell));
+        const outerShellElectrons = fromAtom.electrons.filter(e => e.shell === maxShell);
+
+        updateElectronInfo('Electron Transfer Starting',
+            `${fromData.name} will transfer ${electronsToTransfer} electron(s) to ${toData.name}`);
+
+        for (let i = 0; i < Math.min(electronsToTransfer, outerShellElectrons.length); i++) {
+            const electronData = outerShellElectrons[i];
+            const electron = electronData.element;
+            const orbit = electronData.orbit;
+
+            // Highlight the transferring electron
+            electron.classList.add('transferring');
+            electron.style.zIndex = '200';
+
+            await sleep(500);
+
+            // Animate transfer
+            const startX = parseFloat(electron.style.left);
+            const startY = parseFloat(electron.style.top);
+            const targetX = toCenterX - 6;
+            const targetY = toCenterY - 6;
+
+            // Smooth transfer animation
+            const duration = 2000;
+            const startTime = Date.now();
+
+            function animateTransfer() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Eased animation
+                const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+                const currentX = startX + (targetX - startX) * easedProgress;
+                const currentY = startY + (targetY - startY) * easedProgress;
+
+                electron.style.left = currentX + 'px';
+                electron.style.top = currentY + 'px';
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateTransfer);
+                } else {
+                    // Transfer complete
+                    electron.classList.remove('transferring');
+                    electron.classList.add('transferred');
+
+                    // Create new orbit for transferred electron
+                    const newRadius = toData.size / 2 + 50 + (i * 15);
+                    const newOrbit = document.createElement('div');
+                    newOrbit.className = 'electron-orbit shell-gained';
+                    const orbitDiameter = newRadius * 2;
+                    newOrbit.style.width = orbitDiameter + 'px';
+                    newOrbit.style.height = orbitDiameter + 'px';
+                    newOrbit.style.left = (toCenterX - newRadius) + 'px';
+                    newOrbit.style.top = (toCenterY - newRadius) + 'px';
+
+                    document.getElementById('canvas').appendChild(newOrbit);
+
+                    // Start new orbital motion
+                    const newAngle = (i / electronsToTransfer) * 2 * Math.PI;
+                    startElectronOrbit(electron, toCenterX, toCenterY, newRadius, newAngle, 0);
+
+                    // Remove from original atom
+                    const index = fromAtom.electrons.indexOf(electronData);
+                    if (index > -1) {
+                        fromAtom.electrons.splice(index, 1);
+                    }
+
+                    // Check if we need to remove the orbit
+                    const remainingInShell = fromAtom.electrons.filter(e => e.shell === maxShell).length;
+                    if (remainingInShell === 0 && orbit.parentNode) {
+                        orbit.style.opacity = '0';
+                        setTimeout(() => orbit.remove(), 500);
+                    }
+                }
+            }
+
+            animateTransfer();
+            await sleep(1000);
+        }
+
+        updateElectronInfo('Transfer Complete',
+            `${fromSymbol}${fromData.charge} and ${toSymbol}${toData.charge} ions formed through electron transfer!`);
+    }
+
+    function createBond(atom1, atom2) {
+        const rect1 = atom1.getBoundingClientRect();
+        const rect2 = atom2.getBoundingClientRect();
+        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+
+        const x1 = rect1.left - canvasRect.left + rect1.width / 2;
+        const y1 = rect1.top - canvasRect.top + rect1.height / 2;
+        const x2 = rect2.left - canvasRect.left + rect2.width / 2;
+        const y2 = rect2.top - canvasRect.top + rect2.height / 2;
+
+        const bond = document.createElement('div');
+        bond.className = 'bond';
+
+        const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+
+        bond.style.width = length + 'px';
+        bond.style.left = x1 + 'px';
+        bond.style.top = y1 - 2 + 'px';
+        bond.style.transform = `rotate(${angle}rad)`;
+
+        document.getElementById('canvas').appendChild(bond);
+
+        setTimeout(() => bond.classList.add('visible'), 100);
+        return bond;
+    }
+
+    function updateProgress(percentage) {
+        document.getElementById('progress').style.width = percentage + '%';
+    }
+
+    function updateStep(step) {
+        document.querySelectorAll('.step').forEach((s, i) => {
+            if (i + 1 < step) {
+                s.className = 'step completed';
+            } else if (i + 1 === step) {
+                s.className = 'step active';
+            } else {
+                s.className = 'step';
+            }
+        });
+        currentStep = step;
+    }
+
+    function updateProcessInfo(title, description) {
+        document.getElementById('process-title').textContent = title;
+        document.getElementById('process-description').textContent = description;
+    }
+
+    function updateElectronInfo(title, description) {
+        document.getElementById('electron-title').textContent = title;
+        document.getElementById('electron-description').textContent = description;
+    }
+
+    function showTooltip(event, text) {
+        const tooltip = document.getElementById('tooltip');
+        tooltip.textContent = text;
+        tooltip.style.left = event.pageX + 10 + 'px';
+        tooltip.style.top = event.pageY - 30 + 'px';
+        tooltip.classList.add('visible');
+    }
+
+    function hideTooltip() {
+        document.getElementById('tooltip').classList.remove('visible');
+    }
+
+    function createFloatingParticles() {
+        const particleContainer = document.getElementById('particles');
+        for (let i = 0; i < 20; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.top = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 6 + 's';
+            particleContainer.appendChild(particle);
+        }
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Environmental Impact Data
+    const compoundEnvironmentalImpacts = {
+        NaCl: "Common table salt, generally safe but mining and excessive use can cause soil and water salinization.",
+        KF: "Similar to NaCl in effects; potassium fluoride is less commonly encountered but toxic in high doses.",
+        NaF: "Used in water fluoridation; excessive fluoride can be toxic to aquatic systems.",
+        KCl: "Potassium chloride used as fertilizer; excessive use can harm soil quality and water bodies.",
+       
+    };
+
+    function updateEnvironmentalImpact(cationSymbol, anionSymbol) {
+        // Calculate the correct stoichiometry based on ion charges
+        const cationCharge = Math.abs(parseInt(atomData[cationSymbol].charge));
+        const anionCharge = Math.abs(parseInt(atomData[anionSymbol].charge));
+
+        function gcd(a, b) {
+            if (!b) return a;
+            return gcd(b, a % b);
+        }
+
+        const divisor = gcd(cationCharge, anionCharge);
+        const cationCount = anionCharge / divisor;
+        const anionCount = cationCharge / divisor;
+
+        let formula = '';
+        formula += cationSymbol;
+        if (cationCount > 1) formula += cationCount;
+        formula += anionSymbol;
+        if (anionCount > 1) formula += anionCount;
+
+        const impact = compoundEnvironmentalImpacts[formula];
+        if (impact) {
+            document.getElementById('env-impact-title').textContent = `Environmental Impact of ${formula}`;
+            document.getElementById('env-impact-description').textContent = impact;
+        } else {
+            document.getElementById('env-impact-title').textContent = `Environmental Impact of ${formula}`;
+            document.getElementById('env-impact-description').textContent = "Environmental impact data not available for this compound.";
+        }
+    }
+
+    // Start simulation flow
+    async function startSimulation() {
+        if (isSimulating) {
+            alert('Simulation already running!');
+            return;
+        }
+        isSimulating = true;
+        updateProgress(0);
+        updateStep(1);
+
+        // Clear previous atoms, bonds and canvas elements except floating particles
+        const canvas = document.getElementById('canvas');
+        [...canvas.children].forEach(child => {
+            if (!child.classList.contains('floating-particles')) {
+                child.remove();
+            }
+        });
+        atoms = [];
+        bonds = [];
+        electronAnimations = [];
+
+        const cationSymbol = document.getElementById('cation').value;
+        const anionSymbol = document.getElementById('anion').value;
+
+        updateProcessInfo('Step 1: Placing Atoms', `Placing ${cationSymbol} and ${anionSymbol} on canvas.`);
+
+        // Place atoms on canvas at fixed positions
+        const cation = createAtom(cationSymbol, 300, 200);
+        const anion = createAtom(anionSymbol, 900, 200);
+        atoms.push(cation, anion);
+
+        createElectrons(cation, cationSymbol);
+        createElectrons(anion, anionSymbol);
+
+        updateProgress(25);
+        updateStep(2);
+        updateProcessInfo('Step 2: Electron Transfer', `${cationSymbol} is transferring electrons to ${anionSymbol}`);
+
+        // Wait a bit before transfer
+        await sleep(1000);
+
+        await transferElectrons(cation, anion, cationSymbol, anionSymbol);
+
+        updateProgress(75);
+        updateStep(3);
+        updateProcessInfo('Step 3: Forming Ionic Bond', `Forming an ionic bond between ${cationSymbol} and ${anionSymbol}`);
+
+        createBond(cation, anion);
+
+        // Mark atoms as bonded visually
+        cation.classList.add('bonded');
+        anion.classList.add('bonded');
+
+        await sleep(1200);
+
+        updateProgress(100);
+        updateStep(4);
+        updateProcessInfo('Simulation Complete', `Ionic bond formed between ${cationSymbol} and ${anionSymbol}!`);
+
+        // Update environmental impact panel
+        updateEnvironmentalImpact(cationSymbol, anionSymbol);
+
+        isSimulating = false;
+    }
+
+    // Reset simulation state
+    function resetSimulation() {
+        if (isSimulating) {
+            alert('Please wait for the simulation to finish before resetting.');
+            return;
+        }
+        updateProgress(0);
+        updateStep(1);
+        updateProcessInfo('Ready to Begin', 'Select your atoms and click Start Simulation to begin the ionic bonding process.');
+        updateElectronInfo('Electron Configuration', 'Electron transfer details will appear here during the simulation.');
+        document.getElementById('env-impact-title').textContent = 'Impact Information';
+        document.getElementById('env-impact-description').textContent = 'Environmental impact details of the formed compound will appear here.';
+
+        const canvas = document.getElementById('canvas');
+        [...canvas.children].forEach(child => {
+            if (!child.classList.contains('floating-particles')) {
+                child.remove();
+            }
+        });
+
+        atoms = [];
+        bonds = [];
+        electronAnimations = [];
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        createFloatingParticles();
+    });
+</script>
+</body>
+</html>
+
+    
